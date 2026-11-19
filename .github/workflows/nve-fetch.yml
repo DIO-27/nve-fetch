@@ -45,5 +45,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "NVE package" \
             --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat NVE.zip.part-* > NVE.zip"
-          gh release upload nve-fetch out/* \
+          gh release upload nve-fetch out/NVE.zip.part-* out/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --clobber

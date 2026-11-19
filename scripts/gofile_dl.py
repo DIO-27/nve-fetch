@@ -8,7 +8,10 @@ from pathlib import Path
 import requests
 
 GOFILE_API = "https://api.gofile.io"
-UA = "Mozilla/5.0"
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+LANG = "en-US"
+SALT = "12af056dacea0b"
 CONTENT_ID = "vDWUmg"
 OUT = Path("out")
 CHUNK = 256 * 1024
@@ -35,35 +38,40 @@ def guest_token():
     raise SystemExit(f"cannot create guest account: {last}")
 
 
-def website_token(tok):
-    tw = str(int(time.time()) // 14400)
+def website_token(tok, offset=0):
+    tw = str(int(time.time() // 14400) + offset)
     return hashlib.sha256(
-        f"{UA}::en-US::{tok}::{tw}::5d4f7g8sd45fsd".encode()).hexdigest()
+        f"{UA}::{LANG}::{tok}::{tw}::{SALT}".encode()).hexdigest()
 
 
-def api_headers(tok):
+def api_headers(tok, offset=0):
     return {
         "User-Agent": UA,
         "Accept": "*/*",
         "Accept-Encoding": "gzip",
         "Authorization": f"Bearer {tok}",
-        "X-Website-Token": website_token(tok),
-        "X-BL": "en-US",
+        "X-Website-Token": website_token(tok, offset),
+        "X-BL": LANG,
+        "Origin": "https://gofile.io",
+        "Referer": "https://gofile.io/",
         "Cookie": f"accountToken={tok}",
     }
 
 
 def fetch_info(tok):
-    url = f"{GOFILE_API}/contents/{CONTENT_ID}?cache=true&sortField=createTime&sortDirection=1"
+    url = f"{GOFILE_API}/contents/{CONTENT_ID}"
+    params = {"contentFilter": "", "page": 1, "pageSize": 1000,
+              "sortField": "createTime", "sortDirection": -1}
     for i in range(10):
         try:
-            r = requests.get(url, headers=api_headers(tok), timeout=30).json()
+            r = requests.get(url, headers=api_headers(tok), params=params,
+                             timeout=30).json()
             if r.get("status") == "ok":
                 return r["data"]
             log(f"[retry] content api: {r.get('status')}")
         except Exception as e:
             log(f"[retry] content api err: {e}")
-        time.sleep(30)
+        time.sleep(45)
     raise SystemExit("cannot fetch content info")
 
 
@@ -89,8 +97,8 @@ def dl(f, tok):
         "Accept": "*/*",
         "Connection": "keep-alive",
         "Cookie": f"accountToken={tok}",
-        "Referer": origin + "/",
-        "Origin": origin,
+        "Referer": "https://gofile.io/",
+        "Origin": "https://gofile.io",
     }
     for attempt in range(1, MAX_RETRIES + 1):
         resume = dest.stat().st_size if dest.exists() else 0

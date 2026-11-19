@@ -36,7 +36,7 @@ def guest_token():
 
 
 def website_token(tok):
-    tw = str(int(time()) // 14400)
+    tw = str(int(time.time()) // 14400)
     return hashlib.sha256(
         f"{UA}::en-US::{tok}::{tw}::5d4f7g8sd45fsd".encode()).hexdigest()
 

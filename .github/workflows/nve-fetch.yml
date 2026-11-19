@@ -29,10 +29,12 @@ jobs:
 
       - name: Split into <2GB parts
         run: |
-          find out -type f ! -name 'SHA256SUMS.txt' -size +1900M \
-            -exec split -b 1900m -d {} {}.part- \; \
-            -exec rm {} \;
-          ls -lahR out
+          BIG=$(find out -type f ! -name 'SHA256SUMS.txt' -size +1900M | head -1)
+          echo "big file: $BIG"
+          split -b 1900m -d "$BIG" out/NVE.zip.part-
+          rm "$BIG"
+          find out -name 'SHA256SUMS.txt' ! -path 'out/SHA256SUMS.txt' -exec mv {} out/ \;
+          ls -lah out
 
       - name: Create release and upload assets
         env:
@@ -41,6 +43,6 @@ jobs:
           gh release create nve-fetch \
             --repo "$GITHUB_REPOSITORY" \
             --title "NVE package" \
-            --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat *.part* > file"
-          find out -type f -print0 | xargs -0 gh release upload nve-fetch \
+            --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat NVE.zip.part-* > NVE.zip"
+          gh release upload nve-fetch out/* \
             --repo "$GITHUB_REPOSITORY" --clobber

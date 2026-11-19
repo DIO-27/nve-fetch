@@ -1,0 +1,49 @@
+name: Fetch NVE from GoFile
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: python -m pip install requests -q
+
+      - name: Download from GoFile
+        run: python scripts/gofile_dl.py
+
+      - name: Split into <2GB parts
+        run: |
+          BIG=$(find out -type f ! -name 'SHA256SUMS.txt' -size +1900M | head -1)
+          echo "big file: $BIG"
+          split -b 1900m -d "$BIG" out/NVE.zip.part-
+          rm "$BIG"
+          find out -name 'SHA256SUMS.txt' ! -path 'out/SHA256SUMS.txt' -exec mv {} out/ \;
+          ls -lah out
+
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nve-fetch --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create nve-fetch \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "NVE package" \
+            --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat NVE.zip.part-* > NVE.zip"
+          gh release upload nve-fetch out/* \
+            --repo "$GITHUB_REPOSITORY" --clobber

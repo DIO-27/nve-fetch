@@ -29,25 +29,18 @@ jobs:
 
       - name: Split into <2GB parts
         run: |
-          cd out
-          for f in *; do
-            [ "$f" = "SHA256SUMS.txt" ] && continue
-            sz=$(stat -c%s "$f")
-            if [ "$sz" -gt 1900000000 ]; then
-              split -b 1900m -d "$f" "$f.part-"
-              rm "$f"
-            fi
-          done
-          ls -lah
+          find out -type f ! -name 'SHA256SUMS.txt' -size +1900M \
+            -exec split -b 1900m -d {} {}.part- \; \
+            -exec rm {} \;
+          ls -lahR out
 
       - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd out
           gh release create nve-fetch \
             --repo "$GITHUB_REPOSITORY" \
             --title "NVE package" \
-            --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat *.part* > file" \
-            --clobber \
-            *
+            --notes "Split parts + SHA256SUMS.txt (original hashes). Concatenate with: cat *.part* > file"
+          find out -type f -print0 | xargs -0 gh release upload nve-fetch \
+            --repo "$GITHUB_REPOSITORY" --clobber

@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install requests
+        run: python -m pip install requests -q
+
       - name: Download from GoFile
         run: python scripts/gofile_dl.py
 
